@@ -158,9 +158,9 @@ body {
 }
 
 .article-body h1,
-h2,
-h3,
-h4 {
+.article-body h2,
+.article-body h3,
+.article-body h4 {
     font-family: "Playfair Display", serif;
     color: var(--accent);
     line-height: 1.2;
@@ -424,6 +424,75 @@ button:focus,
     outline: 3px solid rgba(127, 212, 255, 0.12);
     outline-offset: 3px;
     border-radius: 10px;
+}
+
+.article-body blockquote {
+    margin: 1.5rem 0;
+    padding: 12px 18px;
+    border-left: 4px solid var(--accent);
+    background: rgba(127, 212, 255, 0.04);
+    color: var(--muted-2);
+    border-radius: 0 8px 8px 0;
+}
+
+.article-body blockquote p {
+    margin-bottom: 10px;
+}
+
+.article-body blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+.article-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0 2.5rem;
+}
+
+.article-body table + p {
+    margin-top: 1.5rem;
+}
+
+.article-index {
+    margin: 1.5rem 0 2.5rem;
+    padding-left: 1.4rem;
+    list-style: none;
+}
+
+.article-index > li {
+    margin-bottom: 0.7rem;
+}
+
+.article-index ul {
+    margin: 0.4rem 0 0.8rem;
+    padding-left: 1.4rem;
+    list-style: none;
+}
+
+.article-index li {
+    line-height: 1.5;
+}
+
+.article-index a {
+    display: inline-block;
+    padding: 2px 0;
+    border-bottom: none;
+    transition: color 0.15s ease;
+}
+
+.article-index a:hover {
+    color: #ffffff;
+}
+
+.article-index a.is-active {
+    color: var(--accent);
+    font-weight: 700;
+    padding-left: 6px;
+    border-left: 2px solid var(--accent);
+}
+
+.article-index li.is-active > a {
+    opacity: 1;
 }
 
 @media (max-width:900px) {

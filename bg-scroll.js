@@ -1,276 +1,516 @@
 (function () {
   'use strict';
 
-  const root = document.documentElement;
-  
-  const TOP_COLOR_HEX = '#071025';   // exact original top color (kept unchanged at scroll top)
-  const END_COLOR_HEX = '#02121b';   // original gradient end
-  const STEPS = 30;                  // number of discrete colors across scroll (more => finer changes)
-  const HUE_SPREAD = 360;            // degrees of hue spanned across the steps
-  const SATURATION = 36;             // saturation % (keeps tones muted)
-  const LIGHTNESS_MIN = 6;           // lightness % at top
-  const LIGHTNESS_MAX = 12;          // lightness % at full scroll
-  const BOTTOM_BLEND_START = 0.92;   // last fraction of page where we blend back toward dark top
-  const TOP_DARKEN_AT_BOTTOM = 8;    // how much darker (in L%) top becomes at final page
-  const TWEEN_SPEED = 0.22;          // per-frame lerp speed toward target (0..1). smaller = slower
-  const END_CROSSFADE_MAX = 0.30;    // max amount the computed color influences the gradient-end (0..1)
+  /* ========================================
+     CONFIGURATION
+  ======================================== */
 
-  // convert hex -> {r,g,b}
+  const CONFIG = {
+    topColor: '#071025',
+    endColor: '#02121b',
+
+    steps: 30,
+    hueSpread: 360,
+    saturation: 36,
+
+    lightnessMin: 6,
+    lightnessMax: 12,
+
+    bottomBlendStart: 0.92,
+    topDarkenAtBottom: 8,
+
+    tweenSpeed: 0.22,
+    endCrossfadeMax: 0.30,
+
+    styleId: 'bg-scroll-style'
+  };
+
+
+  /* ========================================
+     COLOR UTILITIES
+  ======================================== */
+
   function hexToRgb(hex) {
-    hex = (hex || '').replace('#', '').trim();
-    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    return { r, g, b };
+    let value = (hex || '').replace('#', '').trim();
+
+    if (value.length === 3) {
+      value = value
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16)
+    };
   }
 
-  // rgb -> hsl (h in deg 0..360, s,l in 0..100)
+
   function rgbToHsl({ r, g, b }) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h = 0, s = 0;
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+
+    let h = 0;
+    let s = 0;
+
     const l = (max + min) / 2;
+
     if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      const delta = max - min;
+
+      s = l > 0.5
+        ? delta / (2 - max - min)
+        : delta / (max + min);
+
       switch (max) {
-        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-        case g: h = (b - r) / d + 2; break;
-        case b: h = (r - g) / d + 4; break;
+        case r:
+          h = (g - b) / delta + (g < b ? 6 : 0);
+          break;
+
+        case g:
+          h = (b - r) / delta + 2;
+          break;
+
+        case b:
+          h = (r - g) / delta + 4;
+          break;
       }
+
       h *= 60;
     }
-    return { h: (h || 0), s: s * 100, l: l * 100 };
+
+    return {
+      h: h || 0,
+      s: s * 100,
+      l: l * 100
+    };
   }
 
-  // hsl -> css string
-  function hslToCss(hsl) {
-    return `hsl(${(hsl.h).toFixed(2)}, ${(hsl.s).toFixed(2)}%, ${(hsl.l).toFixed(2)}%)`;
+
+  function hslToCss({ h, s, l }) {
+    return `hsl(${h.toFixed(2)}, ${s.toFixed(2)}%, ${l.toFixed(2)}%)`;
   }
 
-  // shortest-path hue interpolatiob (handles wraparound)
-  function interpHue(a, b, t) {
-    let d = ((b - a + 540) % 360) - 180;
-    return (a + d * t + 360) % 360;
+
+  function lerp(start, end, amount) {
+    return start + (end - start) * amount;
   }
 
-  // generic lerp
-  function lerp(a, b, t) { return a + (b - a) * t; }
 
-  // ease for smooth feel inside a step
-  function easeInOutCubic(t) {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  function interpolateHue(start, end, amount) {
+    const difference = ((end - start + 540) % 360) - 180;
+
+    return (start + difference * amount + 360) % 360;
   }
 
-  const STYLE_ID = 'bg-scroll-opt-style';
-  let styleEl = document.getElementById(STYLE_ID);
-  if (!styleEl) {
-    styleEl = document.createElement('style');
-    styleEl.id = STYLE_ID;
-    styleEl.textContent = `
+
+  function easeInOutCubic(value) {
+    return value < 0.5
+      ? 4 * value * value * value
+      : 1 - Math.pow(-2 * value + 2, 3) / 2;
+  }
+
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+
+  function isHslClose(a, b, epsilon = 0.05) {
+    const hueDifference = Math.abs(
+      ((a.h - b.h + 540) % 360) - 180
+    );
+
+    return (
+      hueDifference <= epsilon * 10 &&
+      Math.abs(a.s - b.s) <= epsilon * 100 &&
+      Math.abs(a.l - b.l) <= epsilon * 100
+    );
+  }
+
+
+  function interpolateHsl(current, target, amount) {
+    return {
+      h: interpolateHue(current.h, target.h, amount),
+      s: lerp(current.s, target.s, amount),
+      l: lerp(current.l, target.l, amount)
+    };
+  }
+
+
+  /* ========================================
+     STYLE SETUP
+  ======================================== */
+
+  const root = document.documentElement;
+
+  function createBackgroundStyle() {
+    let style = document.getElementById(CONFIG.styleId);
+
+    if (style) return style;
+
+    style = document.createElement('style');
+    style.id = CONFIG.styleId;
+
+    style.textContent = `
       :root {
-        --bg: ${TOP_COLOR_HEX};
-        --bg-end: ${END_COLOR_HEX};
+        --bg: ${CONFIG.topColor};
+        --bg-end: ${CONFIG.endColor};
       }
-      html, body {
-        background: linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 140%) !important;
+
+      html,
+      body {
+        background:
+          linear-gradient(
+            180deg,
+            var(--bg) 0%,
+            var(--bg-end) 140%
+          ) !important;
+
         will-change: background;
       }
     `;
-    document.head.appendChild(styleEl);
+
+    document.head.appendChild(style);
+
+    return style;
   }
 
-  // parse base colors
-  const topRgb = hexToRgb(TOP_COLOR_HEX);
-  const topHsl = rgbToHsl(topRgb);
-  const endRgb = hexToRgb(END_COLOR_HEX);
-  const endHsl = rgbToHsl(endRgb);
 
-  // compute per-step hue increment (anchor start at topHsl.h)
-  const deltaHue = HUE_SPREAD / Math.max(1, STEPS - 1);
+  /* ========================================
+     LAYOUT TRACKING
+  ======================================== */
 
-  // cache layout metrics
   let maxScroll = 0;
-  function recomputeLayout() {
-    const docHeight = Math.max(
+
+  function updateScrollMetrics() {
+    const documentHeight = Math.max(
       document.documentElement.scrollHeight,
       document.body.scrollHeight,
       document.documentElement.offsetHeight
     );
-    const viewport = window.innerHeight || document.documentElement.clientHeight || 1;
-    maxScroll = Math.max(0, docHeight - viewport);
+
+    const viewportHeight =
+      window.innerHeight ||
+      document.documentElement.clientHeight ||
+      1;
+
+    maxScroll = Math.max(0, documentHeight - viewportHeight);
   }
 
-  // compute color HSL pair (bgHsl, endHsl) given frac in [0,1]
-  function computeTargetHSL(frac) {
-    if (frac <= 0) {
+
+  function getScrollProgress() {
+    const scrollY = Math.max(
+      0,
+      window.scrollY || window.pageYOffset || 0
+    );
+
+    if (maxScroll <= 0) return 0;
+
+    return clamp(scrollY / maxScroll, 0, 1);
+  }
+
+
+  /* ========================================
+     COLOR CALCULATION
+  ======================================== */
+
+  const topHsl = rgbToHsl(hexToRgb(CONFIG.topColor));
+  const endHsl = rgbToHsl(hexToRgb(CONFIG.endColor));
+
+  const hueStep =
+    CONFIG.hueSpread / Math.max(1, CONFIG.steps - 1);
+
+
+  function calculateTargetColors(progress) {
+    if (progress <= 0) {
       return {
-        bg: { h: topHsl.h, s: topHsl.s, l: topHsl.l },
-        end: { h: endHsl.h, s: endHsl.s, l: endHsl.l },
+        bg: { ...topHsl },
+        end: { ...endHsl }
       };
     }
-    const f = Math.max(0, Math.min(1, frac));
-    const pos = f * (STEPS - 1);
-    const idx = Math.floor(pos);
-    const local = pos - idx;
-    const t = easeInOutCubic(local);
 
-    const hueA = (topHsl.h + idx * deltaHue) % 360;
-    const hueB = (topHsl.h + Math.min(idx + 1, STEPS - 1) * deltaHue) % 360;
-    const hue = interpHue(hueA, hueB, t);
+    const fraction = clamp(progress, 0, 1);
 
-    let lightness = lerp(LIGHTNESS_MIN, LIGHTNESS_MAX, f);
+    const position = fraction * (CONFIG.steps - 1);
+    const stepIndex = Math.floor(position);
+    const localProgress = position - stepIndex;
+    const easedProgress = easeInOutCubic(localProgress);
 
-    if (f >= BOTTOM_BLEND_START) {
-      const localBottom = (f - BOTTOM_BLEND_START) / Math.max(1e-6, 1 - BOTTOM_BLEND_START);
-      const darkTopL = Math.max(0, topHsl.l - TOP_DARKEN_AT_BOTTOM);
-      const hueBack = interpHue(hue, topHsl.h, localBottom * 0.85);
-      const sBack = lerp(SATURATION, SATURATION * 0.92, localBottom);
-      const lBack = lerp(lightness, darkTopL, localBottom);
-      const bgHsl = { h: hueBack, s: sBack, l: lBack };
+    const hueA =
+      (topHsl.h + stepIndex * hueStep) % 360;
 
-      const mix = Math.min(END_CROSSFADE_MAX, f * END_CROSSFADE_MAX);
-      const endH = interpHue(endHsl.h, bgHsl.h, mix);
-      const endS = lerp(endHsl.s, bgHsl.s, mix * 0.7);
-      const endL = lerp(endHsl.l, bgHsl.l, mix * 0.9);
+    const hueB =
+      (
+        topHsl.h +
+        Math.min(stepIndex + 1, CONFIG.steps - 1) * hueStep
+      ) % 360;
 
-      return { bg: bgHsl, end: { h: endH, s: endS, l: endL }, idx };
+    const hue = interpolateHue(
+      hueA,
+      hueB,
+      easedProgress
+    );
+
+    const lightness = lerp(
+      CONFIG.lightnessMin,
+      CONFIG.lightnessMax,
+      fraction
+    );
+
+    let backgroundHsl;
+
+    /* Bottom-of-page blending */
+    if (fraction >= CONFIG.bottomBlendStart) {
+      const bottomProgress =
+        (fraction - CONFIG.bottomBlendStart) /
+        Math.max(0.000001, 1 - CONFIG.bottomBlendStart);
+
+      const darkenedTopLightness = Math.max(
+        0,
+        topHsl.l - CONFIG.topDarkenAtBottom
+      );
+
+      backgroundHsl = {
+        h: interpolateHue(
+          hue,
+          topHsl.h,
+          bottomProgress * 0.85
+        ),
+
+        s: lerp(
+          CONFIG.saturation,
+          CONFIG.saturation * 0.92,
+          bottomProgress
+        ),
+
+        l: lerp(
+          lightness,
+          darkenedTopLightness,
+          bottomProgress
+        )
+      };
+    } else {
+      backgroundHsl = {
+        h: hue,
+        s: CONFIG.saturation,
+        l: lightness
+      };
     }
 
-    const bgHsl = { h: hue, s: SATURATION, l: lightness };
-    const mix = Math.min(END_CROSSFADE_MAX, 0.02 + f * END_CROSSFADE_MAX);
-    const endH = interpHue(endHsl.h, bgHsl.h, mix);
-    const endS = lerp(endHsl.s, bgHsl.s, mix * 0.7);
-    const endL = lerp(endHsl.l, bgHsl.l, mix * 0.9);
+    /* Blend the gradient's end color */
+    const mix = Math.min(
+      CONFIG.endCrossfadeMax,
+      0.02 + fraction * CONFIG.endCrossfadeMax
+    );
 
-    return { bg: bgHsl, end: { h: endH, s: endS, l: endL }, idx };
-  }
+    const endColor = {
+      h: interpolateHue(
+        endHsl.h,
+        backgroundHsl.h,
+        mix
+      ),
 
-  // small helpers for color compare and per-frame lerp of HSL
-  function closeEnough(a, b, eps = 0.02) {
-    return Math.abs(a - b) <= eps;
-  }
-  function hslCloseEnough(a, b, eps = 0.02) {
-    return closeEnough(a.h, b.h, eps * 10) && closeEnough(a.s, b.s, eps * 100) && closeEnough(a.l, b.l, eps * 100);
-  }
-  function lerpHsl(a, b, t) {
+      s: lerp(
+        endHsl.s,
+        backgroundHsl.s,
+        mix * 0.7
+      ),
+
+      l: lerp(
+        endHsl.l,
+        backgroundHsl.l,
+        mix * 0.9
+      )
+    };
+
     return {
-      h: interpHue(a.h, b.h, t),
-      s: lerp(a.s, b.s, t),
-      l: lerp(a.l, b.l, t),
+      bg: backgroundHsl,
+      end: endColor
     };
   }
 
-  // state for tweening
-  let currentBg = { h: topHsl.h, s: topHsl.s, l: topHsl.l };
-  let currentEnd = { h: endHsl.h, s: endHsl.s, l: endHsl.l };
-  let targetBg = currentBg;
-  let targetEnd = currentEnd;
-  let lastStepIdx = -1;
-  let ticking = false;
-  let needStyleWrite = true; // write intial
 
-  // tiny function to apply CSS variables when current values changed enough
-  function applyIfChanged() {
-    // convert to CSS strings
+  /* ========================================
+     ANIMATION STATE
+  ======================================== */
+
+  let currentBg = { ...topHsl };
+  let currentEnd = { ...endHsl };
+
+  let targetBg = { ...topHsl };
+  let targetEnd = { ...endHsl };
+
+  let animationFrame = null;
+  let lastWrittenBg = '';
+  let lastWrittenEnd = '';
+
+  function writeBackgroundVariables() {
     const bgCss = hslToCss(currentBg);
     const endCss = hslToCss(currentEnd);
-    
-    const prevBg = getComputedStyle(root).getPropertyValue('--bg').trim();
-    const prevEnd = getComputedStyle(root).getPropertyValue('--bg-end').trim();
-    if (prevBg !== bgCss || prevEnd !== endCss || needStyleWrite) {
-      root.style.setProperty('--bg', bgCss);
-      root.style.setProperty('--bg-end', endCss);
-      needStyleWrite = false;
-    }
-  }
 
-  // rAF loop to gradually move current colors toward target colors
-  function tick() {
-    ticking = true;
-    currentBg = lerpHsl(currentBg, targetBg, TWEEN_SPEED);
-    currentEnd = lerpHsl(currentEnd, targetEnd, TWEEN_SPEED);
-
-    applyIfChanged();
-
-    // stop ticking when close enough
-    if (hslCloseEnough(currentBg, targetBg, 0.05) && hslCloseEnough(currentEnd, targetEnd, 0.05)) {
-      // snap exact (avoid lingering tiny diffs)
-      currentBg = targetBg = { ...targetBg };
-      currentEnd = targetEnd = { ...targetEnd };
-      applyIfChanged();
-      ticking = false;
+    if (
+      bgCss === lastWrittenBg &&
+      endCss === lastWrittenEnd
+    ) {
       return;
     }
 
-    requestAnimationFrame(tick);
+    root.style.setProperty('--bg', bgCss);
+    root.style.setProperty('--bg-end', endCss);
+
+    lastWrittenBg = bgCss;
+    lastWrittenEnd = endCss;
   }
-  
-  function onScroll() {
-    const scrollY = Math.max(0, window.scrollY || window.pageYOffset || 0);
-    const frac = maxScroll > 0 ? Math.min(1, scrollY / maxScroll) : 0;
 
-    // compute discrete pos & idx to minimize churn
-    const pos = frac * (STEPS - 1);
-    const idx = Math.floor(pos);
 
-    // if index changed, compute new tagret HSL (expensive-ish) and kick tween
-    if (idx !== lastStepIdx) {
-      lastStepIdx = idx;
-      const { bg, end } = computeTargetHSL(frac);
-      targetBg = bg;
-      targetEnd = end;
-      // start rAF tween if not running
-      if (!ticking) requestAnimationFrame(tick);
-    } else {
-      // inside same step we still want a subtle motion when local t changes meaningfully.
-      // compute local eased t and apply if different enough (cheap check).
-      const { bg, end } = computeTargetHSL(frac);
-      // If the computed bg differs noticeably from the current target, update target.
-      if (!hslCloseEnough(bg, targetBg, 0.25) || !hslCloseEnough(end, targetEnd, 0.25)) {
-        targetBg = bg;
-        targetEnd = end;
-        if (!ticking) requestAnimationFrame(tick);
-      }
+  function animateBackground() {
+    currentBg = interpolateHsl(
+      currentBg,
+      targetBg,
+      CONFIG.tweenSpeed
+    );
+
+    currentEnd = interpolateHsl(
+      currentEnd,
+      targetEnd,
+      CONFIG.tweenSpeed
+    );
+
+    writeBackgroundVariables();
+
+    const bgFinished = isHslClose(
+      currentBg,
+      targetBg
+    );
+
+    const endFinished = isHslClose(
+      currentEnd,
+      targetEnd
+    );
+
+    if (bgFinished && endFinished) {
+      currentBg = { ...targetBg };
+      currentEnd = { ...targetEnd };
+
+      writeBackgroundVariables();
+      animationFrame = null;
+
+      return;
     }
+
+    animationFrame = requestAnimationFrame(
+      animateBackground
+    );
   }
 
-  // finaly
-  function init() {
-    // ensure exact top color at load
-    root.style.setProperty('--bg', TOP_COLOR_HEX);
-    root.style.setProperty('--bg-end', END_COLOR_HEX);
-    needStyleWrite = true;
 
-    recomputeLayout();
-    // handle cases where page is already scrolled
-    onScroll();
+  function requestBackgroundUpdate() {
+    if (animationFrame !== null) return;
 
-    // lightweight listeners
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', recomputeLayout, { passive: true });
+    animationFrame = requestAnimationFrame(
+      animateBackground
+    );
+  }
 
-    // observe content/size changes to recompute layout
+
+  /* ========================================
+     SCROLL HANDLING
+  ======================================== */
+
+  function handleScroll() {
+    const progress = getScrollProgress();
+
+    const colors = calculateTargetColors(progress);
+
+    targetBg = colors.bg;
+    targetEnd = colors.end;
+
+    requestBackgroundUpdate();
+  }
+
+
+  /* ========================================
+     INITIALIZATION
+  ======================================== */
+
+  function initialize() {
+    createBackgroundStyle();
+
+    // Preserve the exact original colors at the top.
+    root.style.setProperty('--bg', CONFIG.topColor);
+    root.style.setProperty('--bg-end', CONFIG.endColor);
+
+    lastWrittenBg = CONFIG.topColor;
+    lastWrittenEnd = CONFIG.endColor;
+
+    updateScrollMetrics();
+    handleScroll();
+
+    window.addEventListener(
+      'scroll',
+      handleScroll,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      'resize',
+      () => {
+        updateScrollMetrics();
+        handleScroll();
+      },
+      { passive: true }
+    );
+
     if (window.ResizeObserver) {
-      const ro = new ResizeObserver(recomputeLayout);
-      ro.observe(document.documentElement);
-      ro.observe(document.body);
+      const resizeObserver = new ResizeObserver(() => {
+        updateScrollMetrics();
+        handleScroll();
+      });
+
+      resizeObserver.observe(document.documentElement);
+      resizeObserver.observe(document.body);
     }
 
-    // MutationObserver fallback to recompute layout if content changes drastically (rare)
     if (window.MutationObserver) {
-      const mo = new MutationObserver(() => {
-        // debounce a little
-        setTimeout(recomputeLayout, 50);
+      let resizeTimeout = null;
+
+      const mutationObserver = new MutationObserver(() => {
+        clearTimeout(resizeTimeout);
+
+        resizeTimeout = setTimeout(() => {
+          updateScrollMetrics();
+          handleScroll();
+        }, 50);
       });
-      mo.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+      mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      });
     }
   }
+
+
+  /* ========================================
+     START
+  ======================================== */
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener(
+      'DOMContentLoaded',
+      initialize,
+      { once: true }
+    );
   } else {
-    init();
+    initialize();
   }
+
 })();

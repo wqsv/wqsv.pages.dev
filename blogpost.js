@@ -477,3 +477,156 @@ window.addEventListener('resize', () => {
 
 
 })();
+
+
+/* ========================================
+   TABLE OF CONTENTS / INDEX EFFECTS
+======================================== */
+
+(function initializeIndexEffects() {
+  'use strict';
+
+  function onDOMReady(callback) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', callback, { once: true });
+    } else {
+      callback();
+    }
+  }
+
+  function setupIndex() {
+    const articleBody = document.querySelector('.article-body');
+    if (!articleBody) return;
+
+    const indexHeading = [...articleBody.querySelectorAll('h3')]
+      .find((heading) => heading.textContent.trim().toLowerCase() === 'index');
+
+    if (!indexHeading) return;
+
+    const indexList = indexHeading.nextElementSibling;
+    if (!indexList || indexList.tagName !== 'UL') return;
+
+    indexList.classList.add('article-index');
+
+    const links = [...indexList.querySelectorAll('a[href^="#"]')]
+      .filter((link) => link.getAttribute('href').length > 1);
+
+    if (!links.length) return;
+
+    const sections = links
+      .map((link) => {
+        const id = decodeURIComponent(link.getAttribute('href').slice(1));
+        const section = document.getElementById(id);
+
+        if (!section) return null;
+
+        return { link, section };
+      })
+      .filter(Boolean);
+
+    if (!sections.length) return;
+
+    sections.forEach(({ link }) => {
+      const item = link.closest('li');
+      if (item) item.classList.add('index-item');
+    });
+
+    function setActiveSection(activeSection) {
+      sections.forEach(({ link, section }) => {
+        const item = link.closest('li');
+        const isActive = section === activeSection;
+
+        link.classList.toggle('is-active', isActive);
+
+        if (item) {
+          item.classList.toggle('is-active', isActive);
+        }
+
+        if (isActive) {
+          link.setAttribute('aria-current', 'location');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
+    }
+
+    function getScrollOffset() {
+      const header = document.querySelector('.bp-header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+
+      return headerHeight + 24;
+    }
+
+    function scrollToSection(event) {
+      const link = event.currentTarget;
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
+
+      const id = decodeURIComponent(href.slice(1));
+      const target = document.getElementById(id);
+      if (!target) return;
+
+      event.preventDefault();
+
+      const targetTop =
+        target.getBoundingClientRect().top +
+        window.scrollY -
+        getScrollOffset();
+
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth'
+      });
+
+      if (history.replaceState) {
+        history.replaceState(null, '', `#${encodeURIComponent(id)}`);
+      }
+
+      setActiveSection(target);
+    }
+
+    sections.forEach(({ link }) => {
+      link.addEventListener('click', scrollToSection);
+    });
+
+    let ticking = false;
+
+    function updateActiveSection() {
+      ticking = false;
+
+      const readingLine = window.scrollY + getScrollOffset() + 8;
+      let active = sections[0].section;
+
+      sections.forEach(({ section }) => {
+        if (section.offsetTop <= readingLine) {
+          active = section;
+        }
+      });
+
+      setActiveSection(active);
+    }
+
+    function requestActiveUpdate() {
+      if (ticking) return;
+
+      ticking = true;
+      window.requestAnimationFrame(updateActiveSection);
+    }
+
+    window.addEventListener('scroll', requestActiveUpdate, { passive: true });
+    window.addEventListener('resize', requestActiveUpdate, { passive: true });
+
+    if (window.location.hash) {
+      const initialId = decodeURIComponent(window.location.hash.slice(1));
+      const initialSection = document.getElementById(initialId);
+
+      if (initialSection) {
+        setActiveSection(initialSection);
+      }
+    } else {
+      updateActiveSection();
+    }
+  }
+
+  onDOMReady(setupIndex);
+})();
