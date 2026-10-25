@@ -1,0 +1,199 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  pubDate: Date;
+  sourceUrl?: string;
+  readingTime: string;
+}
+
+const { title, description, pubDate, sourceUrl, readingTime } = Astro.props;
+
+const author = "wqsv";
+
+const formattedDate = pubDate.toLocaleDateString("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+const pageUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+
+const readingTimeMeta = readingTime.replace(/\bminute read\b/i, "Minute Read");
+---
+
+<!doctype html>
+<html lang="en" data-theme="">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
+    <meta name="description" content={description} />
+    <title>{title} - {author}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,700&family=Inter:wght@300;400;600&family=Fira+Code&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css"
+    />
+
+    <link rel="stylesheet" href="/assets/css/writeup.css" />
+
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: title,
+        description,
+        datePublished: pubDate.toISOString(),
+        author: {
+          "@type": "Person",
+          name: author,
+        },
+        mainEntityOfPage: pageUrl.toString(),
+        ...(sourceUrl ? { isBasedOn: sourceUrl } : {}),
+      })}
+    />
+
+    <!-- Highlight.js -->
+    <script
+      is:inline
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"
+      defer></script>
+
+    <script
+      is:inline
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/x86asm.min.js"
+      defer></script>
+
+    <script
+      is:inline
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/plugins/autoloader/highlightjs-autoloader.min.js"
+      defer></script>
+
+    <!-- Shared site scripts -->
+    <script is:inline src="/assets/js/scroll-background.js" defer></script>
+    <script is:inline src="/assets/js/writeup.js" defer></script>
+  </head>
+
+  <body>
+    <header class="bp-header" role="banner" aria-label="Post header">
+      <div class="bp-header-inner">
+        <div class="bp-meta-left">
+          <img
+            class="gh-avatar"
+            src="https://avatars.githubusercontent.com/u/132809543"
+            alt="GitHub avatar for wqsv"
+            width="72"
+            height="72"
+          />
+
+          <div class="bp-title-wrap">
+            <h1 class="bp-title">{title}</h1>
+            <p class="bp-sub">by <strong>{author}</strong></p>
+          </div>
+        </div>
+
+        <nav class="bp-nav" role="navigation" aria-label="Post navigation">
+          <a
+            id="go-back"
+            class="nav-btn"
+            href="/"
+            title="Home"
+            aria-label="Go to home (root)"
+          >
+            <i class="fa fa-home" aria-hidden="true"></i>
+            <span class="nav-text">Home</span>
+          </a>
+
+          <a
+            class="nav-btn"
+            href="https://github.com/wqsv"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open GitHub profile"
+            aria-label="Open GitHub profile"
+          >
+            <i class="fa fa-github" aria-hidden="true"></i>
+            <span class="nav-text">GitHub</span>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="bp-main" role="main">
+      <article
+        class="post-article"
+        itemscope
+        itemtype="https://schema.org/Article"
+      >
+        <header class="article-head">
+          <div class="reading-meta">
+            <span class="reading-date">{formattedDate}</span>
+
+            <button
+              type="button"
+              class="dick-trigger"
+              aria-label="Click D"
+              aria-controls="dick-popup"
+              aria-expanded="false"
+            >
+              <span class="dick-line"></span>
+              <span class="dick-letter">D</span>
+            </button>
+
+            <span class="reading-time">{readingTimeMeta}</span>
+          </div>
+
+          <hr />
+        </header>
+
+        <div id="dick-popup" class="dick-popup" role="status" hidden>
+          yeah, that's literally a dick except it don't have that girth.
+        </div>
+
+        <section class="article-body" itemprop="articleBody">
+          <slot />
+        </section>
+      </article>
+    </main>
+
+    <footer class="bp-footer" role="contentinfo" aria-label="Footer">
+      <div class="bp-footer-inner">
+        <small>
+          © <span id="year"></span>
+          {author} •
+          <a
+            href="https://github.com/wqsv"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+        </small>
+      </div>
+    </footer>
+  </body>
+</html>
