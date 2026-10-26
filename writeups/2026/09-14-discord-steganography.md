@@ -633,29 +633,29 @@ A closer inspection of the final configuration revealed a recurring visual artif
     <tbody>
       <tr>
         <td>
-          <img src="/writeups/2026/res/steg/1-original.jpg" alt="Original image 1" width="100%">
+          <img src="/writeup-assets/2026/steg/1-original.jpg" alt="Original image 1" width="100%">
           <p align="center">Original Image</p>
-          <img src="/writeups/2026/res/steg/2-original.jpg" alt="Original image 2" width="100%">
+          <img src="/writeup-assets/2026/steg/2-original.jpg" alt="Original image 2" width="100%">
           <p align="center">Original Image</p>
         </td>
         <td>
-          <img src="/writeups/2026/res/steg/1.png" alt="Image 1 encoded with Delta 35" width="100%">
+          <img src="/writeup-assets/2026/steg/1.png" alt="Image 1 encoded with Delta 35" width="100%">
           <p align="center">Δ=35</p>
-          <img src="/writeups/2026/res/steg/2.png" alt="Image 2 encoded with Delta 35" width="100%">
+          <img src="/writeup-assets/2026/steg/2.png" alt="Image 2 encoded with Delta 35" width="100%">
           <p align="center">Δ=35</p>
         </td>
       </tr>
       <tr>
         <td>
-          <img src="/writeups/2026/res/steg/2-original-closeup.png" alt="Original close-up without cross-hatch effect" width="100%">
+          <img src="/writeup-assets/2026/steg/2-original-closeup.png" alt="Original close-up without cross-hatch effect" width="100%">
           <p align="center">Original - Close-up (No Cross-hatch Effect)</p>
-           <img src="/writeups/2026/res/steg/2-comparison-closeup-d25.png" alt="Cross-hatch effect with Delta 25" width="100%">
+           <img src="/writeup-assets/2026/steg/2-comparison-closeup-d25.png" alt="Cross-hatch effect with Delta 25" width="100%">
           <p align="center">Δ=25 - Cross-hatch Effect</p>
         </td>
         <td>
-          <img src="/writeups/2026/res/steg/2-closeup.png" alt="Delta 35 close-up showing cross-hatch effect" width="100%">
+          <img src="/writeup-assets/2026/steg/2-closeup.png" alt="Delta 35 close-up showing cross-hatch effect" width="100%">
           <p align="center">Δ=35 - Close-up (Cross-hatch Effect)</p>
-          <img src="/writeups/2026/res/steg/2-comparison-closeup-d35.png" alt="Cross-hatch effect with Delta 35" width="100%">
+          <img src="/writeup-assets/2026/steg/2-comparison-closeup-d35.png" alt="Cross-hatch effect with Delta 35" width="100%">
           <p align="center">Δ=35 - Cross-hatch Effect</p>
         </td>
       </tr>

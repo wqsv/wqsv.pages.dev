@@ -3,7 +3,7 @@ title: "Using SoundCloud's API Without an app"
 description: "Exploring SoundCloud's API, browser session credentials, and the challenges of DataDome bot protection."
 pubDate: 2025-09-21
 canonicalSlug: "2025/09-21-soundcloud-api"
-readingTime: "4 minute read"
+readingTime: "5 minute read"
 ---
 
 > **⚠️ CAUTION:** This is a failure report, not a success story. No working bypass was demonstrated, and the code does little more than generate strings that look vaguely like the observed IDs. If you're looking for a ready-to-use solution, you're in the wrong place. If you'd like to watch me investigate a problem, lose my shit and make some questionable assumptions, and learn why things aren't always as simple as they look, proceed...

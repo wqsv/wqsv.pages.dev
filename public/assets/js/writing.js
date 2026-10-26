@@ -9,7 +9,7 @@ const POSTS = [
     date: "2025-09-21",
     excerpt: "Exploring SoundCloud's API, browser session credentials, and the challenges of DataDome bot protection.",
     tags: ["api", "reverse-engineering"],
-    readTime: 4
+    readTime: 5
   },
   {
     title: "Wiping MFT",
@@ -17,7 +17,7 @@ const POSTS = [
     date: "2025-09-11",
     excerpt: "A write-up detailing an NTFS MFT killer.",
     tags: ["mft", "ntfs"],
-    readTime: 10
+    readTime: 18
   },
   {
     title: "Hiding text in Discord PFPs",
@@ -25,7 +25,7 @@ const POSTS = [
     date: "2026-09-30",
     excerpt: "A write-up detailing lossy steganography.",
     tags: ["steganography", "lossy"],
-    readTime: 30
+    readTime: 20
   }
 ];
 

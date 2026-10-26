@@ -3,7 +3,7 @@ title: "Wiping the MFT from NTFS and Making Windows Unbootable"
 description: "A technical walkthrough of locating and wiping the NTFS Master File Table (MFT) and MFT mirror."
 pubDate: 2025-09-11
 canonicalSlug: "2025/09-11-wipemft"
-readingTime: "10-13 minute read"
+readingTime: "12-18 minute read"
 ---
 
 ### Disclaimer
@@ -285,9 +285,9 @@ The MFT mirror conventionally stores the first four MFT file record segments (or
 ### 4. Looking at the structures in a hex editor
 With the reported locations in hand, I opened the relevant regions in HxD to examine the bytes directly.
 
-<img alt="Hex editor showing MFT" src="/writeups/2025/res/wipemft/mft-hxd.png"/>
+<img alt="Hex editor showing MFT" src="/writeup-assets/2025/wipemft/mft-hxd.png"/>
 
-<img alt="Hex editor showing MFT mirror" src="/writeups/2025/res/wipemft/mftmirr-hxd.png"/>
+<img alt="Hex editor showing MFT mirror" src="/writeup-assets/2025/wipemft/mftmirr-hxd.png"/>
 
 Looking at raw bytes helps because it lets us compare the data on disk with the metadata reported by Windows. It can also help us recognize file record headers and other NTFS structures.
 
@@ -328,7 +328,7 @@ FOSS tools like [Kernel Driver Utility (KDU)](https://github.com/hfiref0x/KDU) a
 
 We have compiled both KDU and SectorIO from their respective source code repositories. With both binaries ready, we can use KDU to modify the system's Driver Signature Enforcement (DSE) state, as shown below.
 
-<img alt="KDU setting DSE value to zero" src="/writeups/2025/res/wipemft/kdu-setting-dse-value-to-0.png"/>
+<img alt="KDU setting DSE value to zero" src="/writeup-assets/2025/wipemft/kdu-setting-dse-value-to-0.png"/>
 
 We selected provider 54, although the appropriate provider depends on the vulnerable driver being used and the target system. In KDU, a *provider* identifies the mechanism used to load and execute code through a vulnerable driver.
 
@@ -338,7 +338,7 @@ As shown in the output, KDU reports that the original DSE value was 6 and that i
 
 Once the driver has been loaded, the system should be returned to its original security state. The following screenshot shows the next stage, where we create the SectorIO service.
 
-<img alt="Creating SectorIO service using sc create command and restoring DSE value" src="/writeups/2025/res/wipemft/starting-driver-and-restoring-dse-value.png"/>
+<img alt="Creating SectorIO service using sc create command and restoring DSE value" src="/writeup-assets/2025/wipemft/starting-driver-and-restoring-dse-value.png"/>
 
 Let's write some code to wipe the MFT and its mirror. We'll use a function called WipeSectors, which takes a device handle, some device-identification information, the starting sector, the sector size, and the number of sectors to process.
 
@@ -404,26 +404,26 @@ This gives us a handle to the driver's device interface, which we can use to sub
 #### 6.1. Running the Wiper
 With everything in place, we can compile the program and run it to see what happens.
 
-<img alt="Running our MFT wiper" src="/writeups/2025/res/wipemft/running-our-wiper-program.png"/>
+<img alt="Running our MFT wiper" src="/writeup-assets/2025/wipemft/running-our-wiper-program.png"/>
 
 The program appears to complete the operation. But did it actually overwrite the intended sectors? Let's inspect the disk contents in a hex editor.
 
-<img alt="Wiped MFT in HxD" src="/writeups/2025/res/wipemft/wiped-mft-in-hxd.png"/>
+<img alt="Wiped MFT in HxD" src="/writeup-assets/2025/wipemft/wiped-mft-in-hxd.png"/>
 
 
-<img alt="Wiped MFT Mirror in HxD" src="/writeups/2025/res/wipemft/wiped-mft-mirr-in-hxd.png"/>
+<img alt="Wiped MFT Mirror in HxD" src="/writeup-assets/2025/wipemft/wiped-mft-mirr-in-hxd.png"/>
 
 The inspected regions appear to have been overwritten. However, writing directly to filesystem metadata has consequences beyond the contents of those sectors.
 
 Shortly after the operation, Windows starts reporting errors:
 
-<img alt="Some errors we get after wiping MFT" src="/writeups/2025/res/wipemft/errors-we-get-after-wiping-mft-1.png"/>
+<img alt="Some errors we get after wiping MFT" src="/writeup-assets/2025/wipemft/errors-we-get-after-wiping-mft-1.png"/>
 
-<img alt="Some errors we get after wiping MFT" src="/writeups/2025/res/wipemft/errors-we-get-after-wiping-mft-2.png"/>
+<img alt="Some errors we get after wiping MFT" src="/writeup-assets/2025/wipemft/errors-we-get-after-wiping-mft-2.png"/>
 
 Eventually, the system also crashes with a lovely and sweet bug check:
 
-<img alt="Bugcheck after wiping MFT" src="/writeups/2025/res/wipemft/bugcheck-after-wiping-mft.png"/>
+<img alt="Bugcheck after wiping MFT" src="/writeup-assets/2025/wipemft/bugcheck-after-wiping-mft.png"/>
 
 These results aren't entirely surprising. The MFT contains critical NTFS metadata, including records used to describe files and directories. The MFT mirror stores copies of a limited subset of those records; it isn't a complete backup of the MFT. Overwriting these structures can leave NTFS unable to interpret the volume correctly, resulting in filesystem errors and potentially a system crash.
 
