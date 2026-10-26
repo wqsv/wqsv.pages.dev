@@ -6,7 +6,7 @@
 
   window.setTimeout(() => {
     watermark.remove();
-  }, 7000);
+  }, 4500);
 
   // contour lines
   const canvas = document.getElementById("contours");

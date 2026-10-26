@@ -763,6 +763,6 @@ Steganography hides information within a carrier; encryption makes the informati
 ### Source code
 The implementation used for these experiments is available on GitHub:
 
-[**github.com/wqsv/stego**](https://github.com/wqsv/stego)
+[**github.com/wqsv/DiscordPfpStego**](https://github.com/wqsv/DiscordPfpStego)
 
 The repository contains the encoder and decoder associated with the experiments described in this article. Star the repo if you found this article interesting :P
